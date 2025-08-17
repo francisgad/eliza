@@ -21,9 +21,9 @@ import { z } from 'zod';
 import axios from 'axios';
 import { ethers } from 'ethers';
 import { SigningStargateClient, GasPrice } from '@cosmjs/stargate';
-import { DirectSecp256k1HdWallet, OfflineDirectSigner } from '@cosmjs/proto-signing';
-import { MsgVote, MsgDelegate, MsgUndelegate } from 'cosmjs-types/cosmos/gov/v1beta1/tx';
-import { MsgDelegate as StakingMsgDelegate, MsgUndelegate as StakingMsgUndelegate } from 'cosmjs-types/cosmos/staking/v1beta1/tx';
+import { DirectSecp256k1HdWallet, DirectSecp256k1Wallet, OfflineDirectSigner } from '@cosmjs/proto-signing';
+import { MsgVote } from 'cosmjs-types/cosmos/gov/v1beta1/tx';
+import { MsgDelegate, MsgUndelegate } from 'cosmjs-types/cosmos/staking/v1beta1/tx';
 import { Coin } from 'cosmjs-types/cosmos/base/v1beta1/coin';
 import { Any } from 'cosmjs-types/google/protobuf/any';
 import { fromBech32, toBech32 } from '@cosmjs/encoding';
@@ -146,7 +146,7 @@ export class SeiGovernanceService extends Service {
   private addressPrefix: string;
   private mnemonic?: string;
   private privateKey?: string;
-  private wallet?: DirectSecp256k1HdWallet;
+  private wallet?: DirectSecp256k1HdWallet | DirectSecp256k1Wallet;
   private signingClient?: SigningStargateClient;
   private walletAddress?: string;
 
@@ -199,7 +199,7 @@ export class SeiGovernanceService extends Service {
       } else if (this.privateKey) {
         // Create wallet from private key
         const privateKeyBytes = ethers.getBytes(this.privateKey);
-        this.wallet = await DirectSecp256k1HdWallet.fromKey(
+        this.wallet = await DirectSecp256k1Wallet.fromKey(
           privateKeyBytes,
           this.addressPrefix
         );
@@ -210,6 +210,10 @@ export class SeiGovernanceService extends Service {
       }
 
       // Get wallet address
+      if (!this.wallet) {
+        throw new Error('Wallet initialization failed');
+      }
+
       const [firstAccount] = await this.wallet.getAccounts();
       this.walletAddress = firstAccount.address;
       logger.info(`👛 Wallet address: ${this.walletAddress}`);
@@ -462,7 +466,7 @@ export class SeiGovernanceService extends Service {
       // Create the delegation message
       const delegateMsg = {
         typeUrl: '/cosmos.staking.v1beta1.MsgDelegate',
-        value: StakingMsgDelegate.fromPartial({
+        value: MsgDelegate.fromPartial({
           delegatorAddress: this.walletAddress,
           validatorAddress: validatorAddress,
           amount: {
@@ -528,7 +532,7 @@ export class SeiGovernanceService extends Service {
       // Create the undelegation message
       const undelegateMsg = {
         typeUrl: '/cosmos.staking.v1beta1.MsgUndelegate',
-        value: StakingMsgUndelegate.fromPartial({
+        value: MsgUndelegate.fromPartial({
           delegatorAddress: this.walletAddress,
           validatorAddress: validatorAddress,
           amount: {
@@ -590,7 +594,7 @@ export class SeiGovernanceService extends Service {
       }
 
       const balance = await this.signingClient.getAllBalances(this.walletAddress);
-      return balance;
+      return balance.map(coin => ({ denom: coin.denom, amount: coin.amount }));
     } catch (error) {
       logger.error({ error }, 'Failed to get wallet balance');
       throw error;
