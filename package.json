@@ -1,0 +1,14 @@
+{
+  "dependencies": {
+    "@cosmjs/amino": "^0.36.0",
+    "@cosmjs/encoding": "^0.36.0",
+    "@cosmjs/proto-signing": "^0.36.0",
+    "@cosmjs/stargate": "^0.36.0",
+    "bech32": "^2.0.0",
+    "cosmjs-types": "^0.10.1"
+  },
+  "devDependencies": {
+    "@types/node": "^24.3.0",
+    "typescript": "^5.9.2"
+  }
+}
